@@ -27,6 +27,8 @@ var (
 		"web.telemetry-path", "/metrics",
 		"Path under which to expose metrics.",
 	)
+	authUser          = flag.String("auth.user", "", "Username for basic auth.")
+	authPass          = flag.String("auth.pass", "", "Password for basic auth.")
 )
 
 // Metric name parts.
@@ -35,7 +37,7 @@ const (
 	namespace = "pg"
 	// Subsystems.
 	exporter          = "exporter"
-	
+
 )
 
 // landingPage contains the HTML served at '/'.
@@ -84,66 +86,65 @@ type MetricMap struct {
 
 // Metric descriptors for dynamically created metrics.
 var metricMaps = map[string]map[string]ColumnMapping {
+	"pgq_queue" : map[string]ColumnMapping {
+		"name" : { LABEL, "Queue name", nil },
+		"lag" : { COUNTER, "Queue lag in seconds", nil },
+	},
+	"pgq_consumer" : map[string]ColumnMapping {
+		"name" : { LABEL, "Consumer name", nil },
+		"lag" : { COUNTER, "Consumer lag in seconds", nil },
+	},
 	"pg_stat_bgwriter" : map[string]ColumnMapping {
-		"checkpoints_timed" : { COUNTER, "Number of scheduled checkpoints that have been performed", nil }, 
-		"checkpoints_req" : { COUNTER, "Number of requested checkpoints that have been performed", nil }, 
-		"checkpoint_write_time" : { COUNTER, "Total amount of time that has been spent in the portion of checkpoint processing where files are written to disk, in milliseconds", nil }, 
-		"checkpoint_sync_time" : { COUNTER, "Total amount of time that has been spent in the portion of checkpoint processing where files are synchronized to disk, in milliseconds", nil }, 
-		"buffers_checkpoint" : { COUNTER, "Number of buffers written during checkpoints", nil }, 
-		"buffers_clean" : { COUNTER, "Number of buffers written by the background writer", nil }, 
-		"maxwritten_clean" : { COUNTER, "Number of times the background writer stopped a cleaning scan because it had written too many buffers", nil }, 
-		"buffers_backend" : { COUNTER, "Number of buffers written directly by a backend", nil }, 
-		"buffers_backend_fsync" : { COUNTER, "Number of times a backend had to execute its own fsync call (normally the background writer handles those even when the backend does its own write)", nil }, 
-		"buffers_alloc" : { COUNTER, "Number of buffers allocated", nil }, 
+		"checkpoints_timed" : { COUNTER, "Number of scheduled checkpoints that have been performed", nil },
+		"checkpoints_req" : { COUNTER, "Number of requested checkpoints that have been performed", nil },
+		"checkpoint_write_time" : { COUNTER, "Total amount of time that has been spent in the portion of checkpoint processing where files are written to disk, in milliseconds", nil },
+		"checkpoint_sync_time" : { COUNTER, "Total amount of time that has been spent in the portion of checkpoint processing where files are synchronized to disk, in milliseconds", nil },
+		"buffers_checkpoint" : { COUNTER, "Number of buffers written during checkpoints", nil },
+		"buffers_clean" : { COUNTER, "Number of buffers written by the background writer", nil },
+		"maxwritten_clean" : { COUNTER, "Number of times the background writer stopped a cleaning scan because it had written too many buffers", nil },
+		"buffers_backend" : { COUNTER, "Number of buffers written directly by a backend", nil },
+		"buffers_backend_fsync" : { COUNTER, "Number of times a backend had to execute its own fsync call (normally the background writer handles those even when the backend does its own write)", nil },
+		"buffers_alloc" : { COUNTER, "Number of buffers allocated", nil },
 		"stats_reset" : { COUNTER, "Time at which these statistics were last reset", nil },
 	},
-	"pg_stat_database" : map[string]ColumnMapping {	
-		"datid" : { LABEL, "OID of a database", nil }, 
-		"datname" : { LABEL, "Name of this database", nil }, 
-		"numbackends" : { GAUGE, "Number of backends currently connected to this database. This is the only column in this view that returns a value reflecting current state; all other columns return the accumulated values since the last reset.", nil }, 
-		"xact_commit" : { COUNTER, "Number of transactions in this database that have been committed", nil }, 
-		"xact_rollback" : { COUNTER, "Number of transactions in this database that have been rolled back", nil }, 
-		"blks_read" : { COUNTER, "Number of disk blocks read in this database", nil }, 
-		"blks_hit" : { COUNTER, "Number of times disk blocks were found already in the buffer cache, so that a read was not necessary (this only includes hits in the PostgreSQL buffer cache, not the operating system's file system cache)", nil }, 
-		"tup_returned" : { COUNTER, "Number of rows returned by queries in this database", nil }, 
-		"tup_fetched" : { COUNTER, "Number of rows fetched by queries in this database", nil }, 
-		"tup_inserted" : { COUNTER, "Number of rows inserted by queries in this database", nil }, 
-		"tup_updated" : { COUNTER, "Number of rows updated by queries in this database", nil }, 
-		"tup_deleted" : { COUNTER, "Number of rows deleted by queries in this database", nil }, 
-		"conflicts" : { COUNTER, "Number of queries canceled due to conflicts with recovery in this database. (Conflicts occur only on standby servers; see pg_stat_database_conflicts for details.)", nil }, 
-		"temp_files" : { COUNTER, "Number of temporary files created by queries in this database. All temporary files are counted, regardless of why the temporary file was created (e.g., sorting or hashing), and regardless of the log_temp_files setting.", nil }, 
-		"temp_bytes" : { COUNTER, "Total amount of data written to temporary files by queries in this database. All temporary files are counted, regardless of why the temporary file was created, and regardless of the log_temp_files setting.", nil }, 
-		"deadlocks" : { COUNTER, "Number of deadlocks detected in this database", nil }, 
-		"blk_read_time" : { COUNTER, "Time spent reading data file blocks by backends in this database, in milliseconds", nil }, 
-		"blk_write_time" : { COUNTER, "Time spent writing data file blocks by backends in this database, in milliseconds", nil }, 
-		"stats_reset" : { COUNTER, "Time at which these statistics were last reset", nil }, 
-	},
-	"pg_stat_database_conflicts" : map[string]ColumnMapping {
-		"datid" : { LABEL, "OID of a database", nil }, 
-		"datname" : { LABEL, "Name of this database", nil }, 
-		"confl_tablespace" : { COUNTER, "Number of queries in this database that have been canceled due to dropped tablespaces", nil }, 
-		"confl_lock" : { COUNTER, "Number of queries in this database that have been canceled due to lock timeouts", nil }, 
-		"confl_snapshot" : { COUNTER, "Number of queries in this database that have been canceled due to old snapshots", nil }, 
-		"confl_bufferpin" : { COUNTER, "Number of queries in this database that have been canceled due to pinned buffers", nil }, 
-		"confl_deadlock" : { COUNTER, "Number of queries in this database that have been canceled due to deadlocks", nil }, 
+	"pg_stat_database" : map[string]ColumnMapping {
+		"datid" : { LABEL, "OID of a database", nil },
+		"datname" : { LABEL, "Name of this database", nil },
+		"numbackends" : { GAUGE, "Number of backends currently connected to this database. This is the only column in this view that returns a value reflecting current state; all other columns return the accumulated values since the last reset.", nil },
+		"xact_commit" : { COUNTER, "Number of transactions in this database that have been committed", nil },
+		"xact_rollback" : { COUNTER, "Number of transactions in this database that have been rolled back", nil },
+		"blks_read" : { COUNTER, "Number of disk blocks read in this database", nil },
+		"blks_hit" : { COUNTER, "Number of times disk blocks were found already in the buffer cache, so that a read was not necessary (this only includes hits in the PostgreSQL buffer cache, not the operating system's file system cache)", nil },
+		"tup_returned" : { COUNTER, "Number of rows returned by queries in this database", nil },
+		"tup_fetched" : { COUNTER, "Number of rows fetched by queries in this database", nil },
+		"tup_inserted" : { COUNTER, "Number of rows inserted by queries in this database", nil },
+		"tup_updated" : { COUNTER, "Number of rows updated by queries in this database", nil },
+		"tup_deleted" : { COUNTER, "Number of rows deleted by queries in this database", nil },
+		"conflicts" : { COUNTER, "Number of queries canceled due to conflicts with recovery in this database. (Conflicts occur only on standby servers; see pg_stat_database_conflicts for details.)", nil },
+		"temp_files" : { COUNTER, "Number of temporary files created by queries in this database. All temporary files are counted, regardless of why the temporary file was created (e.g., sorting or hashing), and regardless of the log_temp_files setting.", nil },
+		"temp_bytes" : { COUNTER, "Total amount of data written to temporary files by queries in this database. All temporary files are counted, regardless of why the temporary file was created, and regardless of the log_temp_files setting.", nil },
+		"deadlocks" : { COUNTER, "Number of deadlocks detected in this database", nil },
+		"blk_read_time" : { COUNTER, "Time spent reading data file blocks by backends in this database, in milliseconds", nil },
+		"blk_write_time" : { COUNTER, "Time spent writing data file blocks by backends in this database, in milliseconds", nil },
+		"stats_reset" : { COUNTER, "Time at which these statistics were last reset", nil },
 	},
 }
 
 // Turn the MetricMap column mapping into a prometheus descriptor mapping.
 func makeDescMap(metricMaps map[string]map[string]ColumnMapping) map[string]MetricMapNamespace {
 	var metricMap = make(map[string]MetricMapNamespace)
-	
+
 	for namespace, mappings := range metricMaps {
 		thisMap := make(map[string]MetricMap)
-		
+
 		// Get the constant labels
 		var constLabels []string
 		for columnName, columnMapping := range mappings {
 			if columnMapping.usage == LABEL {
-				constLabels = append(constLabels, columnName) 
+				constLabels = append(constLabels, columnName)
 			}
 		}
-		
+
 		for columnName, columnMapping := range mappings {
 			switch columnMapping.usage {
 				case DISCARD, LABEL:
@@ -168,10 +169,10 @@ func makeDescMap(metricMaps map[string]map[string]ColumnMapping) map[string]Metr
 					}
 			}
 		}
-		
+
 		metricMap[namespace] = MetricMapNamespace{ constLabels, thisMap }
 	}
-	
+
 	return metricMap
 }
 
@@ -213,7 +214,7 @@ func dbToString(t interface{}) (string, bool) {
 	}
 }
 
-// Exporter collects MySQL metrics. It implements prometheus.Collector.
+// Exporter collects  metrics. It implements prometheus.Collector.
 type Exporter struct {
 	dsn             string
 	duration, error prometheus.Gauge
@@ -221,7 +222,7 @@ type Exporter struct {
 	metricMap		map[string]MetricMapNamespace
 }
 
-// NewExporter returns a new MySQL exporter for the provided DSN.
+// NewExporter returns a new  exporter for the provided DSN.
 func NewExporter(dsn string) *Exporter {
 	return &Exporter{
 		dsn: dsn,
@@ -317,7 +318,7 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 				return
 			}
 			defer rows.Close()
-	
+
 			var columnNames []string
 			columnNames, err = rows.Columns()
 			if err != nil {
@@ -325,19 +326,19 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 				e.error.Set(1)
 				return
 			}
-	
+
 			// Make a lookup map for the column indices
 			var columnIdx = make(map[string]int, len(columnNames))
 			for i, n := range columnNames {
 				columnIdx[n] = i
 			}
-	
+
 			var columnData = make([]interface{}, len(columnNames))
 			var scanArgs = make([]interface{}, len(columnNames))
 			for i := range columnData {
 				scanArgs[i] = &columnData[i]
 			}
-	
+
 			for rows.Next() {
 				err = rows.Scan(scanArgs...)
 				if err != nil {
@@ -345,14 +346,14 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 					e.error.Set(1)
 					return
 				}
-	
+
 				// Get the label values for this row
 				var labels = make([]string, len(mapping.labels))
 				for idx, columnName := range mapping.labels {
 
 					labels[idx], _ = dbToString(columnData[columnIdx[columnName]])
 				}
-	
+
 				// Loop over column names, and match to scan data. Unknown columns
 				// will be filled with an untyped metric number *if* they can be
 				// converted to float64s. NULLs are allowed and treated as NaN.
@@ -369,13 +370,13 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 							log.Errorln("Unexpected error parsing column: ", namespace, columnName, columnData[idx])
 							continue
 						}
-						
+
 						// Generate the metric
 						ch <- prometheus.MustNewConstMetric(metricMapping.desc, metricMapping.vtype, value, labels...)
 					} else {
 						// Unknown metric. Report as untyped if scan to float64 works, else note an error too.
 						desc := prometheus.NewDesc(fmt.Sprintf("%s_%s", namespace, columnName), fmt.Sprintf("Unknown metric from %s", namespace), nil, nil)
-						
+
 						// Its not an error to fail here, since the values are
 						// unexpected anyway.
 						value, ok := dbToFloat64(columnData[idx])
@@ -383,14 +384,31 @@ func (e *Exporter) scrape(ch chan<- prometheus.Metric) {
 							log.Warnln("Unparseable column type - discarding: ", namespace, columnName, err)
 							continue
 						}
-						
+
 						ch <- prometheus.MustNewConstMetric(desc, prometheus.UntypedValue, value, labels...)
 					}
 				}
-				
+
 			}
 		}()
 	}
+}
+
+type basicAuthHandler struct {
+	handler  http.HandlerFunc
+	user     string
+	password string
+}
+
+func (h *basicAuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	user, password, ok := r.BasicAuth()
+	if !ok || password != h.password || user != h.user {
+		w.Header().Set("WWW-Authenticate", "Basic realm=\"metrics\"")
+		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+		return
+	}
+	h.handler(w, r)
+	return
 }
 
 func main() {
@@ -404,7 +422,18 @@ func main() {
 	exporter := NewExporter(dsn)
 	prometheus.MustRegister(exporter)
 
-	http.Handle(*metricPath, prometheus.Handler())
+	handler := prometheus.Handler()
+	if *authUser != "" || *authPass != "" {
+		if *authUser == "" || *authPass == "" {
+			log.Fatal("You need to specify -auth.user and -auth.pass to enable basic auth")
+		}
+		handler = &basicAuthHandler{
+			handler:  prometheus.Handler().ServeHTTP,
+			user:     *authUser,
+			password: *authPass,
+		}
+	}
+	http.Handle(*metricPath, handler)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write(landingPage)
 	})
