@@ -17,6 +17,8 @@ Name               | Description
 -------------------|------------
 web.listen-address | Address to listen on for web interface and telemetry.
 web.telemetry-path | Path under which to expose metrics.
+auth.user          | User for basic http authentification.
+auth.pass          | Password for basic http authentification.
 
 ### Setting the Postgres server's data source name
 
